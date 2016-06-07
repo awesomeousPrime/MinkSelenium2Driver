@@ -782,7 +782,117 @@ JS;
      */
     public function isVisible($xpath)
     {
-        return $this->findElement($xpath)->displayed();
+        $element = $this->findElement($xpath);
+
+        if (!$element->displayed()) {
+            return false;
+        }
+
+        if (!$this->elementIsOnCanvas($element)) {
+            return false;
+        }
+
+        // this is disabled because it break compatibility with browsers that
+        // allow you to interact with elements that are not in the viewport.
+//        if (!$this->elementIsInViewport($element)) {
+//            return false;
+//        }
+
+        return true;
+    }
+
+    /**
+     * Gets the client bounding rectangle for the XPath.
+     *
+     * @see    getElementBoundingClientRect()
+     * @param  string $xpath the XPath to check.
+     * @return array  The client bounding rect.
+     */
+    public function getXpathBoundingClientRect($xpath) {
+        return $this->getElementBoundingClientRect($this->findElement($xpath));
+    }
+
+    /**
+     * Gets the client bounding rectangle for the Element.
+     *
+     * The client bounding rectangle is an associative array that specifies the
+     * top, bottom, left, and right coords of the Element relative to the
+     * viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return array   The client bounding rect. Contains top, bottom, left and right keys.
+     */
+    public function getElementBoundingClientRect(Element $element) {
+        return $this->executeJsOnElement($element, 'return {{ELEMENT}}.getBoundingClientRect()');
+    }
+
+    /**
+     * Determines whether the XPath is completely on the canvas.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return bool   True if the XPath is completely within the canvas. False if not.
+     */
+    public function xpathIsOnCanvas($xpath) {
+        return $this->elementIsOnCanvas($this->findElement($xpath));
+    }
+
+    /**
+     * Determines whether the Element is completely within the canvas.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the canvas. False if not.
+     */
+    public function elementIsOnCanvas(Element $element) {
+        $bounds = $this->getElementBoundingClientRect($element);
+
+        $scrollX = $this->evaluateScript('return window.scrollX');
+        $scrollY = $this->evaluateScript('return window.scrollY');
+
+        $pageWidth = $this->evaluateScript('return document.body.scrollWidth');
+        $pageHeight = $this->evaluateScript('return document.body.scrollHeight');
+
+        if (
+            $bounds['left'] + $scrollX < 0 ||
+            $bounds['top'] + $scrollY < 0 ||
+            $bounds['right'] + $scrollX > $pageWidth ||
+            $bounds['bottom'] + $scrollY > $pageHeight
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Determines whether the XPath is completely within the viewport.
+     *
+     * @param  string $xpath the XPath to check.
+     * @return bool   True if the XPath is completely within the viewport. False if not.
+     */
+    public function xpathIsInViewport($xpath) {
+        return $this->elementIsInViewport($this->findElement($xpath));
+    }
+
+    /**
+     * Determines whether the Element is completely within the viewport.
+     *
+     * @param  Element $element the Element to check.
+     * @return bool    True if the Element is completely within the viewport. False if not.
+     */
+    public function elementIsInViewport(Element $element) {
+        $bounds = $this->getElementBoundingClientRect($element);
+        $viewport = $this->getWindowSize();
+
+        if (
+            $bounds['left'] < 0 ||
+            $bounds['top'] < 0 ||
+            $bounds['right'] > $viewport['width'] ||
+            $bounds['bottom'] > $viewport['height']
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -962,6 +1072,17 @@ JS;
     public function getWebDriverSessionId()
     {
         return $this->isStarted() ? basename($this->wdSession->getUrl()) : null;
+    }
+
+    /**
+     * Returns the size of the specified window.
+     *
+     * @param  string $name the name of the window.
+     * @return array  The window size info. Will contain at least height and width keys with integer values.
+     */
+    protected function getWindowSize($name = 'current')
+    {
+        return $this->wdSession->window($name)->getSize();
     }
 
     /**
