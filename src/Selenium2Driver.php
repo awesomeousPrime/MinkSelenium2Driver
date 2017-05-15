@@ -624,6 +624,20 @@ JS;
     /**
      * {@inheritdoc}
      */
+    public function getCssValue($xpath, $name)
+    {
+        $element = $this->findElement($xpath);
+
+        $script = <<<JS
+return window.getComputedStyle({{ELEMENT}}).getPropertyValue("$name");
+JS;
+
+        return $this->executeJsOnElement($element, $script);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function setValue($xpath, $value)
     {
         $element = $this->findElement($xpath);
